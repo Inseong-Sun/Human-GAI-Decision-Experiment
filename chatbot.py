@@ -1,11 +1,12 @@
 import streamlit as st
-import pandas as pd
 import random
 import uuid
 import time
-import os
 import html
+import json
+import requests
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 # =========================================================
@@ -18,7 +19,8 @@ st.set_page_config(
     layout="centered"
 )
 
-DATA_FILE = os.path.expanduser("~/Desktop/experiment_data.csv")
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx1lANBZTZWsF9QO7BE8N2Gs_jOhJpHBYSurHZGgSSKU4OJwEISj-g90tVB64PRB-Fuhg/exec"
+
 MESSAGE_DELAY = 0.55
 
 
@@ -441,6 +443,7 @@ st.markdown(
 }
 
 @media (max-width: 600px) {
+
     .block-container {
         padding-left: 1rem;
         padding-right: 1rem;
@@ -503,7 +506,7 @@ if "initialized" not in st.session_state:
     st.session_state.post_decision_start = None
     st.session_state.post_decision_time = None
 
-    # 저장
+    # 저장 상태
     st.session_state.saved = False
 
 
@@ -701,7 +704,7 @@ def reset_question_state():
 
 
 # =========================================================
-# 11. CSV 저장
+# 11. Google Sheets 저장
 # =========================================================
 
 def save_data():
@@ -766,28 +769,32 @@ def save_data():
             f"문항{q}_조언후_순수판단시간_초"
         ] = response["post_decision_time"]
 
-        row[f"문항{q}_응답완료시각"] = (
-            response["timestamp"]
+        row[
+            f"문항{q}_응답완료시각"
+        ] = response["timestamp"]
+
+    response = requests.post(
+        GOOGLE_SCRIPT_URL,
+        json=row,
+        timeout=30
+    )
+
+    response.raise_for_status()
+
+    try:
+
+        result = response.json()
+
+    except ValueError:
+
+        raise RuntimeError(
+            "Google Sheets 서버가 올바른 JSON 응답을 반환하지 않았습니다."
         )
 
-    df = pd.DataFrame([row])
+    if result.get("status") != "success":
 
-    if os.path.exists(DATA_FILE):
-
-        df.to_csv(
-            DATA_FILE,
-            mode="a",
-            header=False,
-            index=False,
-            encoding="utf-8-sig"
-        )
-
-    else:
-
-        df.to_csv(
-            DATA_FILE,
-            index=False,
-            encoding="utf-8-sig"
+        raise RuntimeError(
+            f"Google Sheets 저장 실패: {result}"
         )
 
 
@@ -1108,9 +1115,6 @@ elif stage == "decision_start":
 
 # =========================================================
 # 분야 안내
-#
-# 같은 분야의 두 번째 문항이면
-# 이번에는 → 이번에도
 # =========================================================
 
 elif stage == "question_category":
@@ -1200,7 +1204,6 @@ elif stage == "initial_choice":
             use_container_width=True
         )
 
-    # 문제 + 선택지가 나온 이후부터 측정
     if st.session_state.pre_decision_start is None:
 
         st.session_state.pre_decision_start = (
@@ -1356,7 +1359,6 @@ elif stage == "ai_read_complete":
                 "최종 결정하기"
             )
 
-            # 아직 타이머 시작 안 함
             st.session_state.stage = (
                 "final_question_repeat"
             )
@@ -1366,8 +1368,6 @@ elif stage == "ai_read_complete":
 
 # =========================================================
 # 문제 다시 제시
-#
-# 최초 문제와 완전히 동일한 문구
 # =========================================================
 
 elif stage == "final_question_repeat":
@@ -1407,8 +1407,6 @@ elif stage == "final_instruction":
 
 # =========================================================
 # 최종 선택
-#
-# 여기서부터 조언 후 순수 판단시간 측정
 # =========================================================
 
 elif stage == "final_choice":
@@ -1573,7 +1571,9 @@ elif stage == "final_confidence":
                         st.session_state.post_decision_time,
 
                     "timestamp":
-                        datetime.now().strftime(
+                        datetime.now(
+                            ZoneInfo("Asia/Seoul")
+                        ).strftime(
                             "%Y-%m-%d %H:%M:%S"
                         )
                 }
@@ -1586,7 +1586,6 @@ elif stage == "final_confidence":
 
                 next_index = q_index + 1
 
-                # 마지막 문항까지 완료
                 if next_index >= len(QUESTIONS):
 
                     st.session_state.question_index = (
@@ -1597,7 +1596,6 @@ elif stage == "final_confidence":
                         "finish_1"
                     )
 
-                # 다음 문항
                 else:
 
                     st.session_state.question_index = (
@@ -1640,7 +1638,7 @@ elif stage == "finish_2":
 
 
 # =========================================================
-# 저장
+# Google Sheets 저장
 # =========================================================
 
 elif stage == "save":
@@ -1649,9 +1647,22 @@ elif stage == "save":
 
     if not st.session_state.saved:
 
-        save_data()
+        try:
 
-        st.session_state.saved = True
+            save_data()
+
+            st.session_state.saved = True
+
+        except Exception as e:
+
+            st.error(
+                "응답 저장 중 오류가 발생했습니다. "
+                "잠시 후 페이지를 새로고침하지 말고 다시 시도해 주세요."
+            )
+
+            st.code(str(e))
+
+            st.stop()
 
     st.session_state.stage = (
         "finished"
@@ -1744,4 +1755,4 @@ setTimeout(function() {
 # 자동 스크롤
 # =========================================================
 
-scroll_bottom() #끝입니다.
+scroll_bottom()
