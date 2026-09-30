@@ -1,5 +1,5 @@
 import streamlit as st
-import random, uuid, time, html, requests
+import random, uuid, time, html, requests, threading
 
 # 1. 기본 설정: 기존 Streamlit 화면과 Google Sheets 연동 방식은 유지
 st.set_page_config(page_title="인간-AI 의사결정 실험", page_icon="🤖", layout="centered")
@@ -135,6 +135,21 @@ def reset_question_state():
 
 # 7. Google Sheets 저장: 문항별 완료시각 제거, 마지막 열에 전체 사용시간(초) 저장
 # 더미문항은 화면상 동일하게 진행하지만 responses에 넣지 않으므로 시트에 기록되지 않음.
+# 동일 참가자의 종료 버튼 연속 클릭은 프로세스 공용 잠금+참가자번호로 한 번만 POST한다.
+@st.cache_resource
+def get_save_registry():
+    return {"lock": threading.Lock(), "saved_ids": set()}
+
+def save_data_once():
+    registry = get_save_registry()
+    pid = st.session_state.participant_id
+    with registry["lock"]:
+        if pid in registry["saved_ids"]:
+            return False
+        save_data()
+        registry["saved_ids"].add(pid)
+        return True
+
 def save_data():
     row = {"참가자번호": st.session_state.participant_id, "실험집단": st.session_state.group, "연령대": st.session_state.age, "생성형AI_사용빈도": st.session_state.gai_frequency, "생성형AI_신뢰도": st.session_state.gai_trust, "산업분야_사전지식": st.session_state.domain_knowledge}
     for r in st.session_state.responses:
@@ -279,7 +294,7 @@ elif stage == "saving":
     render_chat()
     if not st.session_state.saved:
         try:
-            save_data(); st.session_state.saved=True; st.session_state.saving=False; st.session_state.stage="closed"; st.rerun()
+            save_data_once(); st.session_state.saved=True; st.session_state.saving=False; st.session_state.stage="closed"; st.rerun()
         except Exception as e:
             st.session_state.saving=False; st.session_state.stage="finished"
             st.error("응답 저장 중 오류가 발생했습니다. 종료 버튼을 다시 눌러주세요."); st.code(str(e)); st.stop()
