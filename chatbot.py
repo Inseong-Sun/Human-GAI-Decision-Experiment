@@ -67,10 +67,10 @@ st.markdown("""
 <style>
 .block-container{max-width:720px;padding-top:3.5rem;padding-bottom:5rem}.chat-header{text-align:center;font-size:24px;font-weight:700;line-height:1.4;padding-top:.2rem;margin-bottom:3px}.chat-subheader{text-align:center;font-size:13px;color:#8b8b8b;margin-bottom:25px}
 @keyframes messageIn{0%{opacity:0;transform:translateY(15px) scale(.97)}70%{opacity:1;transform:translateY(-2px) scale(1.01)}100%{opacity:1;transform:translateY(0) scale(1)}}.new-message{animation:messageIn .34s cubic-bezier(.22,1,.36,1)}
-.ai-message{display:flex;align-items:flex-start;gap:9px;margin:3px 0 12px}.ai-profile{width:34px;height:34px;min-width:34px;border-radius:50%;background:#eef1f4;display:flex;align-items:center;justify-content:center;border:1px solid #e0e3e7}.ai-profile svg{width:21px;height:21px}.ai-content{max-width:calc(100% - 43px)}.ai-name{color:#909090;font-size:11px;margin:0 0 3px 5px}.ai-row{display:flex;justify-content:flex-start}.ai-bubble{display:inline-block;width:fit-content;max-width:78%;padding:11px 14px;background:#f1f3f5;color:#111;border-radius:5px 17px 17px 17px;line-height:1.55;font-size:15px;word-break:keep-all;white-space:normal;box-shadow:0 1px 2px rgba(0,0,0,.025)}
+.ai-message{display:flex;align-items:flex-start;gap:9px;margin:3px 0 12px}.ai-profile{width:34px;height:34px;min-width:34px;border-radius:50%;background:#eef1f4;display:flex;align-items:center;justify-content:center;border:1px solid #e0e3e7}.ai-profile svg{width:21px;height:21px}.ai-content{width:calc(100% - 43px);min-width:0}.ai-name{color:#909090;font-size:11px;margin:0 0 3px 5px}.ai-row{display:flex;justify-content:flex-start}.ai-bubble{display:inline-block;width:max-content;max-width:min(96%,760px);padding:11px 14px;background:#f1f3f5;color:#111;border-radius:5px 17px 17px 17px;line-height:1.55;font-size:15px;word-break:keep-all;overflow-wrap:break-word;white-space:normal;box-shadow:0 1px 2px rgba(0,0,0,.025)}
 .user-row{display:flex;justify-content:flex-end;margin:5px 0 14px}.user-bubble{display:inline-block;width:fit-content;max-width:72%;padding:10px 14px;background:#dbeafe;color:#111;border-radius:17px 5px 17px 17px;line-height:1.5;font-size:15px;word-break:keep-all;white-space:normal}.stButton>button{min-height:37px;border-radius:19px;font-size:14px;font-weight:500;padding:5px 14px;transition:transform .08s ease,box-shadow .10s ease,background-color .10s ease}.stButton>button:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.08)}.stButton>button:active{transform:translateY(1px) scale(.91);box-shadow:inset 0 2px 5px rgba(0,0,0,.15)}
 .typing{display:flex;align-items:center;gap:5px;height:18px}.typing span{width:6px;height:6px;border-radius:50%;background:#7d8791;animation:typingDot 1s infinite ease-in-out}.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}@keyframes typingDot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
-@media(max-width:600px){.block-container{padding-left:1rem;padding-right:1rem;padding-top:3rem}.ai-bubble{max-width:88%}.user-bubble{max-width:84%}}
+@media(max-width:600px){.block-container{padding-left:1rem;padding-right:1rem;padding-top:3rem}.ai-content{width:calc(100% - 43px)}.ai-bubble{width:max-content;max-width:100%;font-size:15px;padding:10px 12px}.user-bubble{max-width:84%}}
 </style>""", unsafe_allow_html=True)
 
 # 4. 세션 초기화: 최초 접속 시점부터 전체 사용시간 측정 시작
@@ -97,10 +97,17 @@ def render_chat():
     st.session_state.new_message_index = None
 
 def scroll_bottom():
-    # PC에서도 새 메시지·버튼이 생길 때 최신 영역이 보이도록 여러 시점에 하단 이동
+    # 최신 메시지나 선택지가 출력될 때 PC·모바일 모두 실제 Streamlit 스크롤 영역의 맨 아래로 이동.
     st.components.v1.html("""<script>
-    function goBottom(){const d=window.parent.document;const c=d.querySelector('[data-testid="stAppViewContainer"]');if(c)c.scrollTo({top:c.scrollHeight,behavior:'smooth'});window.parent.scrollTo({top:d.body.scrollHeight,behavior:'smooth'});}
-    [80,220,500].forEach(t=>setTimeout(goBottom,t));
+    const w=window.parent,d=w.document;
+    function goBottom(){
+      const targets=[d.querySelector('[data-testid="stAppViewContainer"]'),d.querySelector('[data-testid="stMain"]'),d.querySelector('section.main')].filter(Boolean);
+      targets.forEach(el=>{el.scrollTop=el.scrollHeight;});
+      const blocks=d.querySelectorAll('[data-testid="stVerticalBlock"]');
+      if(blocks.length) blocks[blocks.length-1].scrollIntoView({behavior:'auto',block:'end'});
+      w.scrollTo(0,d.documentElement.scrollHeight);
+    }
+    requestAnimationFrame(goBottom); [80,200,450,900].forEach(t=>setTimeout(goBottom,t));
     </script>""", height=0)
 
 def delayed_ai(text, next_stage):
@@ -198,7 +205,7 @@ elif stage == "decision_start":
     with cols[0]:
         if st.button("의사결정 시작",use_container_width=True): add_user("의사결정 시작"); st.session_state.stage="question_category"; st.rerun()
 elif stage == "question_category":
-    render_chat(); delayed_ai(f"{st.session_state.question_index + 1}번 문항입니다", "question_role")
+    render_chat(); delayed_ai(f"{st.session_state.question_index + 1}번 문항입니다.", "question_role")
 elif stage == "question_role":
     render_chat(); delayed_ai(QUESTIONS[st.session_state.question_index]["role"], "question_text")
 elif stage == "question_text":
