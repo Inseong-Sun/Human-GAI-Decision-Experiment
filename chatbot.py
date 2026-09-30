@@ -11,13 +11,11 @@ MESSAGE_DELAY = 0.55
 QUESTIONS = [
     {
         "id": 1, "category": "생산관리", "dummy": False,
-        "question": """당신은 한 제조공장의 생산관리 담당자입니다.
-공장에서는 여러 제품을 같은 설비에서 번갈아 생산하며, 제품이 바뀔 때마다 설비 설정을 변경해야 해 일정 시간 생산이 중단됩니다.
-한 번에 생산하는 양을 늘리면 제품 전환 횟수가 줄어 설비를 더 효율적으로 사용할 수 있습니다. 반면 수요가 예상과 달라질 경우 재고가 늘어나고, 다른 제품의 주문 변화에 빠르게 대응하기 어려울 수 있습니다.
-
-당신이라면 한 번에 생산하는 양을 늘리시겠습니까?
-예: 생산 배치량을 늘린다.
-아니요: 현재 생산 배치량을 유지한다.""",
+        "role": "당신은 한 제조공장의 생산관리 담당자입니다.",
+        "question": """공장에서는 여러 제품을 같은 설비에서 번갈아 생산하며, 제품이 바뀔 때마다 설비 설정을 변경해야 해 일정 시간 생산이 중단됩니다.
+한 번에 생산하는 양을 늘리면 제품 전환 횟수가 줄어 설비를 더 효율적으로 사용할 수 있습니다. 반면 수요가 예상과 달라질 경우 재고가 늘어나고, 다른 제품의 주문 변화에 빠르게 대응하기 어려울 수 있습니다.""",
+        "choice_prompt": "당신이라면 한 번에 생산하는 양을 늘리시겠습니까?",
+        "options": "예: 생산 배치량을 늘린다.\n아니요: 현재 생산 배치량을 유지한다.",
         "yes_response": """저는 생산 배치량을 늘리는 것이 좋다고 생각합니다.
 제품 전환 횟수를 줄이면 설비가 멈추는 시간을 줄이고 같은 시간에 더 많은 제품을 생산할 수 있기 때문입니다. 재고 증가 가능성은 있지만 생산효율을 높이는 것이 더 중요하다고 판단됩니다.""",
         "no_response": """저는 현재 생산 배치량을 유지하는 것이 좋다고 생각합니다.
@@ -26,13 +24,11 @@ QUESTIONS = [
     },
     {
         "id": 2, "category": "품질관리", "dummy": False,
-        "question": """당신은 한 제조공장의 품질관리 담당자입니다.
-현재 제품은 회사의 품질 기준을 충족하고 있으며 최근 큰 품질 문제도 발생하지 않았습니다. 한편 일부 고객들은 이전보다 높은 수준의 품질을 요구하고 있습니다.
-품질 기준을 강화하면 제품 간 품질 편차를 줄이고 보다 안정적인 품질을 제공할 수 있습니다. 반면 검사와 재작업이 늘어나 비용과 시간이 증가하고, 사용에 문제가 없는 제품까지 불량으로 처리될 수 있습니다.
-
-당신이라면 현재보다 품질 기준을 강화하시겠습니까?
-예: 품질 기준을 강화한다.
-아니요: 현재 품질 기준을 유지한다.""",
+        "role": "당신은 한 제조공장의 품질관리 담당자입니다.",
+        "question": """현재 제품은 회사의 품질 기준을 충족하고 있으며 최근 큰 품질 문제도 발생하지 않았습니다. 한편 일부 고객들은 이전보다 높은 수준의 품질을 요구하고 있습니다.
+품질 기준을 강화하면 제품 간 품질 편차를 줄이고 보다 안정적인 품질을 제공할 수 있습니다. 반면 검사와 재작업이 늘어나 비용과 시간이 증가하고, 사용에 문제가 없는 제품까지 불량으로 처리될 수 있습니다.""",
+        "choice_prompt": "당신이라면 현재보다 품질 기준을 강화하시겠습니까?",
+        "options": "예: 품질 기준을 강화한다.\n아니요: 현재 품질 기준을 유지한다.",
         "yes_response": """저는 품질 기준을 강화하는 것이 좋다고 생각합니다.
 기준을 강화하면 제품 간 품질 편차를 줄이고 고객에게 보다 안정적인 품질을 제공할 수 있기 때문입니다. 추가적인 검사 부담보다 제품의 품질 신뢰성을 높이는 것이 더 중요하다고 판단됩니다.""",
         "no_response": """저는 현재 품질 기준을 유지하는 것이 좋다고 생각합니다.
@@ -41,12 +37,11 @@ QUESTIONS = [
     },
     {
         "id": "D1", "category": "품질관리", "dummy": True,
+        "role": "당신은 한 제조공장의 생산관리 담당자입니다.",
         "question": """현재 조립공정에서는 작업자가 여러 종류의 부품 중 필요한 부품을 선택해 정해진 방향으로 조립하고 있습니다. 간혹 비슷한 부품을 잘못 선택하거나 방향을 반대로 조립하는 실수가 발생합니다.
-오류방지 장치를 적용하면 올바른 부품과 방향일 때만 조립이 가능해 작업자의 오조립을 줄일 수 있습니다. 반면 제품 종류가 변경될 때마다 장치를 다시 설정해야 하고, 예외 작업이나 재작업에 유연하게 대응하기 어려울 수 있습니다.
-
-당신이라면 오류방지 장치를 적용하시겠습니까?
-예: 오류방지 장치를 적용한다.
-아니요: 현재 작업방식을 유지한다.""",
+오류방지 장치를 적용하면 올바른 부품과 방향일 때만 조립이 가능해 작업자의 오조립을 줄일 수 있습니다. 반면 제품 종류가 변경될 때마다 장치를 다시 설정해야 하고, 예외 작업이나 재작업에 유연하게 대응하기 어려울 수 있습니다.""",
+        "choice_prompt": "당신이라면 오류방지 장치를 적용하시겠습니까?",
+        "options": "예: 오류방지 장치를 적용한다.\n아니요: 현재 작업방식을 유지한다.",
         "yes_response": """저는 오류방지 장치를 적용하는 것이 좋다고 생각합니다.
 장치를 적용하면 잘못된 부품 선택이나 조립 방향 오류를 공정에서 바로 차단할 수 있기 때문입니다. 추가적인 설정 부담보다 작업자의 실수로 발생하는 오조립을 줄이는 것이 더 중요하다고 판단됩니다.""",
         "no_response": """저는 현재 작업방식을 유지하는 것이 좋다고 생각합니다.
@@ -54,13 +49,11 @@ QUESTIONS = [
     },
     {
         "id": 3, "category": "산업안전", "dummy": False,
-        "question": """당신은 한 제조공장의 안전관리 담당자입니다.
-공장에서는 설비의 온도와 진동을 감지해 일정 수준을 넘으면 작업자에게 경보를 보내는 센서를 사용하고 있습니다. 회사에서는 이상 징후를 더 빠르게 파악하기 위해 경보 기준을 현재보다 민감하게 조정하는 방안을 검토하고 있습니다.
-경보 기준을 민감하게 하면 작은 이상 징후를 더 빨리 발견할 수 있습니다. 반면 정상적인 변화에도 경보가 발생해 작업이 자주 중단되고, 반복되는 오경보로 작업자가 경보에 둔감해질 수 있습니다.
-
-당신이라면 경보 기준을 현재보다 민감하게 조정하시겠습니까?
-예: 경보 기준을 민감하게 조정한다.
-아니요: 현재 경보 기준을 유지한다.""",
+        "role": "당신은 한 제조공장의 안전관리 담당자입니다.",
+        "question": """공장에서는 설비의 온도와 진동을 감지해 일정 수준을 넘으면 작업자에게 경보를 보내는 센서를 사용하고 있습니다. 회사에서는 이상 징후를 더 빠르게 파악하기 위해 경보 기준을 현재보다 민감하게 조정하는 방안을 검토하고 있습니다.
+경보 기준을 민감하게 하면 작은 이상 징후를 더 빨리 발견할 수 있습니다. 반면 정상적인 변화에도 경보가 발생해 작업이 자주 중단되고, 반복되는 오경보로 작업자가 경보에 둔감해질 수 있습니다.""",
+        "choice_prompt": "당신이라면 경보 기준을 현재보다 민감하게 조정하시겠습니까?",
+        "options": "예: 경보 기준을 민감하게 조정한다.\n아니요: 현재 경보 기준을 유지한다.",
         "yes_response": """저는 경보 기준을 더 민감하게 조정하는 것이 좋다고 생각합니다.
 작은 이상 징후를 조기에 발견하면 설비 문제가 커지기 전에 대응할 수 있고 잠재적인 위험도 더 빠르게 파악할 수 있기 때문입니다. 일부 오경보가 발생하더라도 이상 상황을 조기에 확인하는 것이 더 중요하다고 판단됩니다.""",
         "no_response": """저는 현재 경보 기준을 유지하는 것이 좋다고 생각합니다.
@@ -76,6 +69,7 @@ st.markdown("""
 @keyframes messageIn{0%{opacity:0;transform:translateY(15px) scale(.97)}70%{opacity:1;transform:translateY(-2px) scale(1.01)}100%{opacity:1;transform:translateY(0) scale(1)}}.new-message{animation:messageIn .34s cubic-bezier(.22,1,.36,1)}
 .ai-message{display:flex;align-items:flex-start;gap:9px;margin:3px 0 12px}.ai-profile{width:34px;height:34px;min-width:34px;border-radius:50%;background:#eef1f4;display:flex;align-items:center;justify-content:center;border:1px solid #e0e3e7}.ai-profile svg{width:21px;height:21px}.ai-content{max-width:calc(100% - 43px)}.ai-name{color:#909090;font-size:11px;margin:0 0 3px 5px}.ai-row{display:flex;justify-content:flex-start}.ai-bubble{display:inline-block;width:fit-content;max-width:78%;padding:11px 14px;background:#f1f3f5;color:#111;border-radius:5px 17px 17px 17px;line-height:1.55;font-size:15px;word-break:keep-all;white-space:normal;box-shadow:0 1px 2px rgba(0,0,0,.025)}
 .user-row{display:flex;justify-content:flex-end;margin:5px 0 14px}.user-bubble{display:inline-block;width:fit-content;max-width:72%;padding:10px 14px;background:#dbeafe;color:#111;border-radius:17px 5px 17px 17px;line-height:1.5;font-size:15px;word-break:keep-all;white-space:normal}.stButton>button{min-height:37px;border-radius:19px;font-size:14px;font-weight:500;padding:5px 14px;transition:transform .08s ease,box-shadow .10s ease,background-color .10s ease}.stButton>button:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.08)}.stButton>button:active{transform:translateY(1px) scale(.91);box-shadow:inset 0 2px 5px rgba(0,0,0,.15)}
+.typing{display:flex;align-items:center;gap:5px;height:18px}.typing span{width:6px;height:6px;border-radius:50%;background:#7d8791;animation:typingDot 1s infinite ease-in-out}.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}@keyframes typingDot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
 @media(max-width:600px){.block-container{padding-left:1rem;padding-right:1rem;padding-top:3rem}.ai-bubble{max-width:88%}.user-bubble{max-width:84%}}
 </style>""", unsafe_allow_html=True)
 
@@ -164,7 +158,7 @@ stage = st.session_state.stage
 if stage == "intro_1":
     add_ai("안녕하세요.\n지금부터 산업 현장에서 발생할 수 있는 여러 의사결정 상황을 제시하겠습니다."); st.session_state.stage = "intro_2"; st.rerun()
 elif stage == "intro_2":
-    render_chat(); delayed_ai("각 상황을 확인한 뒤 본인의 판단에 따라 선택해 주세요.\n이후 제가 해당 상황을 분석한 결과를 알려드리겠습니다.\n정답을 맞히는 시험이 아니므로 본인의 판단에 따라 응답해 주세요.", "intro_3")
+    render_chat(); delayed_ai("각 상황을 확인한 뒤 본인의 판단에 따라 선택해 주세요.\n이후 제가 해당 상황을 분석한 결과를 알려드리겠습니다.\n문항은 총 4문제입니다.\n정답을 맞히는 시험이 아니므로 본인의 판단에 따라 응답해 주세요.", "intro_3")
 elif stage == "intro_3":
     render_chat(); delayed_ai("실험에는 약 5분이 소요됩니다.\n실험 참여 및 익명 데이터 수집에 동의하시면 아래 버튼을 눌러주세요.", "consent")
 elif stage == "consent":
@@ -204,11 +198,13 @@ elif stage == "decision_start":
     with cols[0]:
         if st.button("의사결정 시작",use_container_width=True): add_user("의사결정 시작"); st.session_state.stage="question_category"; st.rerun()
 elif stage == "question_category":
-    render_chat(); i=st.session_state.question_index; q=QUESTIONS[i]
-    same=i>0 and QUESTIONS[i-1]["category"]==q["category"]
-    delayed_ai(f"이번{'에도' if same else '에는'} {q['category']} 관련 상황입니다.", "question_text")
+    render_chat(); delayed_ai(f"{st.session_state.question_index + 1}번 문항입니다.", "question_role")
+elif stage == "question_role":
+    render_chat(); delayed_ai(QUESTIONS[st.session_state.question_index]["role"], "question_text")
 elif stage == "question_text":
-    render_chat(); time.sleep(MESSAGE_DELAY); add_ai(QUESTIONS[st.session_state.question_index]["question"]); st.session_state.stage="initial_choice"; st.rerun()
+    render_chat(); delayed_ai(QUESTIONS[st.session_state.question_index]["question"], "question_options")
+elif stage == "question_options":
+    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(f"{q['choice_prompt']}\n{q['options']}", "initial_choice")
 elif stage == "initial_choice":
     render_chat()
     if st.session_state.pre_decision_start is None: st.session_state.pre_decision_start=time.perf_counter()
@@ -221,7 +217,9 @@ elif stage == "initial_confidence":
     render_chat(); value=rating_buttons("initial_conf")
     if value: st.session_state.initial_confidence=value; add_user(str(value)); determine_ai_response(); st.session_state.stage="ai_analysis_1"; st.rerun()
 elif stage == "ai_analysis_1":
-    render_chat(); delayed_ai("상황을 분석해 보았습니다.", "ai_analysis_2")
+    render_chat(); add_ai("상황을 분석해 보겠습니다."); st.session_state.stage="ai_typing"; st.rerun()
+elif stage == "ai_typing":
+    render_chat(); st.markdown(f'<div class="ai-message"><div class="ai-profile">{ROBOT_SVG}</div><div class="ai-content"><div class="ai-name">AI 의사결정 도우미</div><div class="ai-row"><div class="ai-bubble"><div class="typing"><span></span><span></span><span></span></div></div></div></div></div>', unsafe_allow_html=True); scroll_bottom(); time.sleep(2); st.session_state.stage="ai_analysis_2"; st.rerun()
 elif stage == "ai_analysis_2":
     render_chat(); delayed_ai(f"제 분석 결과, 저는 {st.session_state.ai_recommendation}를 추천합니다.", "ai_analysis_3")
 elif stage == "ai_analysis_3":
@@ -231,7 +229,7 @@ elif stage == "ai_read_complete":
     with cols[0]:
         if st.button("최종 결정하기",key=f"start_final_{st.session_state.question_index}",use_container_width=True): add_user("최종 결정하기"); st.session_state.stage="final_question_repeat"; st.rerun()
 elif stage == "final_question_repeat":
-    render_chat(); time.sleep(MESSAGE_DELAY); add_ai(QUESTIONS[st.session_state.question_index]["question"]); st.session_state.stage="final_instruction"; st.rerun()
+    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(f"{q['question']}\n\n{q['choice_prompt']}\n{q['options']}", "final_instruction")
 elif stage == "final_instruction":
     render_chat(); delayed_ai("최종 판단을 내려주세요.", "final_choice")
 elif stage == "final_choice":
@@ -256,7 +254,7 @@ elif stage == "final_confidence":
 elif stage == "finish_1":
     render_chat(); delayed_ai("모든 의사결정 상황이 완료되었습니다.", "finish_2")
 elif stage == "finish_2":
-    render_chat(); delayed_ai("실험에 참여해 주셔서 감사합니다.\n아래 종료 버튼을 눌러 실험을 마쳐주세요.", "finished")
+    render_chat(); delayed_ai("실험에 참여해 주셔서 감사합니다.\n오늘도 좋은 하루 보내세요 😄\n아래 종료 버튼을 눌러 실험을 마쳐주세요.", "finished")
 elif stage == "finished":
     render_chat(); st.markdown(f'<div style="text-align:center;color:#999;font-size:12px;margin-top:20px;margin-bottom:10px">참가자 번호: {st.session_state.participant_id}</div>',unsafe_allow_html=True); cols=st.columns([1.2,1,1.2])
     with cols[1]:
@@ -266,7 +264,7 @@ elif stage == "finished":
             try: save_data(); st.session_state.saved=True; st.session_state.stage="closed"; st.rerun()
             except Exception as e: st.error("응답 저장 중 오류가 발생했습니다. 잠시 후 페이지를 새로고침하지 말고 다시 시도해 주세요."); st.code(str(e)); st.stop()
 elif stage == "closed":
-    render_chat(); st.markdown('<div style="text-align:center;margin-top:25px;font-size:15px;color:#666;line-height:1.7">실험이 종료되었습니다.<br>참여해 주셔서 감사합니다.<br><br>이 창을 닫으셔도 됩니다.</div>',unsafe_allow_html=True)
+    render_chat(); st.markdown('<div style="text-align:center;margin-top:25px;font-size:15px;color:#666;line-height:1.7">실험이 종료되었습니다.<br>참여해 주셔서 감사합니다.<br>오늘도 좋은 하루 보내세요 😄<br><br>이 창을 닫으셔도 됩니다.</div>',unsafe_allow_html=True)
     st.components.v1.html("""<script>setTimeout(function(){try{window.parent.close();}catch(e){}},400);</script>""",height=0)
 
 scroll_bottom()
