@@ -177,10 +177,10 @@ elif stage == "survey_age":
 elif stage == "frequency_question":
     render_chat(); delayed_ai("평소 생성형 AI를 얼마나 자주 사용하십니까?", "frequency")
 elif stage == "frequency":
-    render_chat(); options=["거의 사용하지 않음","월 1~3회","주 1~2회","주 3~5회","거의 매일"]; cols=st.columns([1,1,1.4])
+    # 모바일·PC 모두 위에서 아래로 동일한 순서가 유지되도록 단일 열에 배치
+    render_chat(); options=["거의 사용하지 않음","월 1~3회","주 1~2회","주 3~5회","거의 매일"]
     for i, option in enumerate(options):
-        with cols[i%2]:
-            if st.button(option,key=f"frequency_{i}",use_container_width=True): st.session_state.gai_frequency=option; add_user(option); st.session_state.stage="trust_question"; st.rerun()
+        if st.button(option,key=f"frequency_{i}",use_container_width=True): st.session_state.gai_frequency=option; add_user(option); st.session_state.stage="trust_question"; st.rerun()
 elif stage == "trust_question":
     render_chat(); delayed_ai("평소 생성형 AI가 제공하는 정보를 어느 정도 신뢰하십니까?\n1은 전혀 신뢰하지 않음, 7은 매우 신뢰함을 의미합니다.", "trust")
 elif stage == "trust":
@@ -198,13 +198,13 @@ elif stage == "decision_start":
     with cols[0]:
         if st.button("의사결정 시작",use_container_width=True): add_user("의사결정 시작"); st.session_state.stage="question_category"; st.rerun()
 elif stage == "question_category":
-    render_chat(); delayed_ai(f"{st.session_state.question_index + 1}번 문항입니다.", "question_role")
+    render_chat(); delayed_ai(f"{st.session_state.question_index + 1}번 문항입니다", "question_role")
 elif stage == "question_role":
     render_chat(); delayed_ai(QUESTIONS[st.session_state.question_index]["role"], "question_text")
 elif stage == "question_text":
-    render_chat(); delayed_ai(QUESTIONS[st.session_state.question_index]["question"], "question_options")
+    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(f"{q['question']}\n{q['choice_prompt']}", "question_options")
 elif stage == "question_options":
-    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(f"{q['choice_prompt']}\n{q['options']}", "initial_choice")
+    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(q["options"], "initial_choice")
 elif stage == "initial_choice":
     render_chat()
     if st.session_state.pre_decision_start is None: st.session_state.pre_decision_start=time.perf_counter()
@@ -219,7 +219,7 @@ elif stage == "initial_confidence":
 elif stage == "ai_analysis_1":
     render_chat(); add_ai("상황을 분석해 보겠습니다."); st.session_state.stage="ai_typing"; st.rerun()
 elif stage == "ai_typing":
-    render_chat(); st.markdown(f'<div class="ai-message"><div class="ai-profile">{ROBOT_SVG}</div><div class="ai-content"><div class="ai-name">AI 의사결정 도우미</div><div class="ai-row"><div class="ai-bubble"><div class="typing"><span></span><span></span><span></span></div></div></div></div></div>', unsafe_allow_html=True); scroll_bottom(); time.sleep(2); st.session_state.stage="ai_analysis_2"; st.rerun()
+    render_chat(); st.markdown(f'<div class="ai-message"><div class="ai-profile">{ROBOT_SVG}</div><div class="ai-content"><div class="ai-name">AI 의사결정 도우미</div><div class="ai-row"><div class="ai-bubble"><div class="typing"><span></span><span></span><span></span></div></div></div></div></div>', unsafe_allow_html=True); scroll_bottom(); time.sleep(3); st.session_state.stage="ai_analysis_2"; st.rerun()
 elif stage == "ai_analysis_2":
     render_chat(); delayed_ai(f"제 분석 결과, 저는 {st.session_state.ai_recommendation}를 추천합니다.", "ai_analysis_3")
 elif stage == "ai_analysis_3":
@@ -229,7 +229,9 @@ elif stage == "ai_read_complete":
     with cols[0]:
         if st.button("최종 결정하기",key=f"start_final_{st.session_state.question_index}",use_container_width=True): add_user("최종 결정하기"); st.session_state.stage="final_question_repeat"; st.rerun()
 elif stage == "final_question_repeat":
-    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(f"{q['question']}\n\n{q['choice_prompt']}\n{q['options']}", "final_instruction")
+    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(f"{q['question']}\n{q['choice_prompt']}", "final_question_options")
+elif stage == "final_question_options":
+    render_chat(); delayed_ai(QUESTIONS[st.session_state.question_index]["options"], "final_instruction")
 elif stage == "final_instruction":
     render_chat(); delayed_ai("최종 판단을 내려주세요.", "final_choice")
 elif stage == "final_choice":
