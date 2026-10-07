@@ -1,10 +1,11 @@
 import streamlit as st
 
 import random, uuid, time, html, requests, threading
+from datetime import datetime
 
 
 
-# 1. 기본 설정:  Streamlit 화면과 Google Sheets 연동
+# 1. 기본 설정: 기존 Streamlit 화면과 Google Sheets 연동 방식은 유지
 
 st.set_page_config(page_title="인간-AI 의사결정 실험", page_icon="🤖", layout="centered")
 
@@ -118,7 +119,7 @@ QUESTIONS = [
 
 
 
-# 3. 화면 스타일
+# 3. 화면 스타일: 기존 인터페이스를 유지하고 AI 프로필 아이콘만 추가
 
 st.markdown("""
 
@@ -305,6 +306,7 @@ def save_data():
         row.update({f"문항{q}_최초선택": r["initial_choice"], f"문항{q}_최초확신도": r["initial_confidence"], f"문항{q}_AI추천": r["ai_recommendation"], f"문항{q}_최종선택": r["final_choice"], f"문항{q}_최종확신도": r["final_confidence"], f"문항{q}_선택변경여부": r["choice_changed"], f"문항{q}_AI추천수용여부": r["ai_accepted"], f"문항{q}_조언전_순수판단시간_초": r["pre_decision_time"], f"문항{q}_조언후_순수판단시간_초": r["post_decision_time"]})
 
     row["전체_사용시간_초"] = st.session_state.total_use_time
+    row["응답일시"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     response = requests.post(GOOGLE_SCRIPT_URL, json=row, timeout=30); response.raise_for_status()
 
