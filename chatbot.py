@@ -4,7 +4,7 @@ import random, uuid, time, html, requests, threading
 
 
 
-# 1. 기본 설정: 기존 Streamlit 화면과 Google Sheets 연동 방식은 유지
+# 1. 기본 설정:  Streamlit 화면과 Google Sheets 연동
 
 st.set_page_config(page_title="인간-AI 의사결정 실험", page_icon="🤖", layout="centered")
 
@@ -118,7 +118,7 @@ QUESTIONS = [
 
 
 
-# 3. 화면 스타일: 기존 인터페이스를 유지하고 AI 프로필 아이콘만 추가
+# 3. 화면 스타일
 
 st.markdown("""
 
