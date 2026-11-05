@@ -276,14 +276,19 @@ def get_save_registry():
 def save_data():
     s=st.session_state
     row={"참가자번호":s.participant_id,"실험집단":s.group,"연령대":s.age,
-         "생성형AI_사용빈도":s.gai_frequency,"생성형AI_신뢰도":s.gai_trust,
-         "산업분야_사전지식":s.domain_knowledge}
+         "생성형 AI 사용빈도":s.gai_frequency,"생성형 AI 신뢰도":s.gai_trust,
+         "산업공학 사전지식":s.domain_knowledge}
+    # 핵심 종속변수 8개를 통제변수 바로 뒤에 배치합니다.
+    for ident in ("단순1","단순2","복잡1","복잡2"):
+        r=s.responses[ident]
+        row[f"{ident} 선택변경여부"]=r["choice_changed"]
+        row[f"{ident} 확신도변화"]=r["confidence_change"]
+    # 문항별 원자료는 고정된 문항 순서로 뒤에 배치합니다.
     for ident in ("단순1","단순2","복잡1","복잡2"):
         r=s.responses[ident]
         for key,value in (("최초선택",r["initial_choice"]),("최초확신도",r["initial_confidence"]),
-                          ("최종선택",r["final_choice"]),("최종확신도",r["final_confidence"]),
-                          ("선택변경여부",r["choice_changed"]),("확신도변화",r["confidence_change"])):
-            row[f"{ident}_{key}"]=value
+                          ("최종선택",r["final_choice"]),("최종확신도",r["final_confidence"])):
+            row[f"{ident} {key}"]=value
     row["응답일시"]=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     response=requests.post(GOOGLE_SCRIPT_URL,json=row,timeout=30)
     response.raise_for_status()
