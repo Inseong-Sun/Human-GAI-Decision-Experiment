@@ -486,7 +486,7 @@ elif stage=="final_confidence":
 elif stage=="finish_1":
     render_chat(); delayed_ai("모든 의사결정 상황이 완료되었습니다.","finish_2")
 elif stage=="finish_2":
-    render_chat(); delayed_ai("실험에 참여해 주셔서 감사합니다.\n오늘도 좋은 하루 보내세요.\n아래 종료 버튼을 눌러 실험을 마쳐주세요.","finished")
+    render_chat(); delayed_ai("실험에 참여해 주셔서 감사합니다.\n아래 종료 버튼을 눌러 실험을 마쳐주세요.\n오늘도 좋은 하루 보내세요 😄","finished")
 elif stage=="finished":
     render_chat(); st.markdown(f'<div style="text-align:center;color:#999;font-size:12px;margin-top:20px;margin-bottom:10px">참가자 번호: {st.session_state.participant_id}</div>',unsafe_allow_html=True)
     cols=st.columns([1.2,1,1.2])
