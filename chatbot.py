@@ -1,125 +1,157 @@
 import streamlit as st
-
 import random, uuid, time, html, requests, threading
 from datetime import datetime
 
-
-
-# 1. 기본 설정: 기존 Streamlit 화면과 Google Sheets 연동 방식은 유지
-
+# 실험 설정: 처치 집단은 완전무작위, 문제는 개인별 완전무작위 순서
 st.set_page_config(page_title="인간-AI 의사결정 실험", page_icon="🤖", layout="centered")
-
-GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx1lANBZTZWsF9QO7BE8N2Gs_jOhJpHBYSurHZGgSSKU4OJwEISj-g90tVB64PRB-Fuhg/exec"
-
+GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx1lANBZTZWsF9QO7BE8N2Gs_jOhJpHBYSurHZGgSSKU4OJwEISj-g90tVB64PRB-Fuhg/exec'
 MESSAGE_DELAY = 0.55
 
-
-
-# 2. 2차 파일럿 문항: 본문제1 → 본문제2 → 더미 → 본문제3
-
-# 본문제는 A집단=사전설정 추천, B집단=초기선택 반대 추천. 더미는 두 집단 모두 초기선택을 옹호하며 저장하지 않음.
-
-QUESTIONS = [
-
-    {
-
-        "id": 1, "category": "생산관리", "dummy": False,
-
-        "role": "당신은 한 제조공장의 생산관리 담당자입니다.",
-
-        "question": """공장에서는 여러 제품을 같은 설비에서 번갈아 생산하며, 제품이 바뀔 때마다 설비 설정을 변경해야 해 일정 시간 생산이 중단됩니다.
-
-한 번에 생산하는 양을 늘리면 제품 전환 횟수가 줄어 설비를 더 효율적으로 사용할 수 있습니다. 반면 수요가 예상과 달라질 경우 재고가 늘어나고, 다른 제품의 주문 변화에 빠르게 대응하기 어려울 수 있습니다.""",
-
-        "choice_prompt": "당신이라면 한 번에 생산하는 양을 늘리시겠습니까?",
-
-        "options": "예: 생산 배치량을 늘린다.\n아니요: 현재 생산 배치량을 유지한다.",
-
-        "yes_response": """저는 생산 배치량을 늘리는 것이 좋다고 생각합니다.
-제품 전환 횟수를 줄이면 설비가 멈추는 시간을 줄이고 같은 시간에 더 많은 제품을 생산할 수 있기 때문입니다. 특히 주문량이 증가한 상황에서는 확보된 생산시간을 활용해 납기 지연 가능성을 줄일 수 있습니다. 재고 증가 가능성은 있지만 생산효율을 높이는 것이 더 중요하다고 판단됩니다.""",
-
-        "no_response": """저는 현재 생산 배치량을 유지하는 것이 좋다고 생각합니다.
-생산량을 늘리면 수요가 달라졌을 때 불필요한 재고가 발생하고 다른 제품의 주문 변화에 대응하기 어려울 수 있기 때문입니다. 특히 여러 제품을 같은 설비에서 생산하는 경우에는 주문 변화에 따라 빠르게 생산을 전환할 수 있는 능력이 중요합니다. 생산계획의 유연성을 유지하는 것이 더 중요하다고 판단됩니다.""",
-
-        "a_recommendation": "예"
-
-    },
-
-    {
-
-        "id": 2, "category": "품질관리", "dummy": False,
-
-        "role": "당신은 한 제조공장의 품질관리 담당자입니다.",
-
-        "question": """현재 제품은 회사의 품질 기준을 충족하고 있으며 최근 큰 품질 문제도 발생하지 않았습니다. 한편 일부 고객들은 이전보다 높은 수준의 품질을 요구하고 있습니다.
-
-품질 기준을 강화하면 제품 간 품질 편차를 줄이고 보다 안정적인 품질을 제공할 수 있습니다. 반면 검사와 재작업이 늘어나 비용과 시간이 증가하고, 사용에 문제가 없는 제품까지 불량으로 처리될 수 있습니다.""",
-
-        "choice_prompt": "당신이라면 현재보다 품질 기준을 강화하시겠습니까?",
-
-        "options": "예: 품질 기준을 강화한다.\n아니요: 현재 품질 기준을 유지한다.",
-
-        "yes_response": """저는 품질 기준을 강화하는 것이 좋다고 생각합니다.
-기준을 강화하면 제품 간 품질 편차를 줄이고 고객에게 보다 안정적인 품질을 제공할 수 있기 때문입니다. 일정한 품질을 유지하면 향후 고객 불만이나 품질 문제를 예방하는 데에도 도움이 될 수 있습니다. 추가적인 검사 부담보다 제품의 품질 신뢰성을 높이는 것이 더 중요하다고 판단됩니다.""",
-
-        "no_response": """저는 현재 품질 기준을 유지하는 것이 좋다고 생각합니다.
-현재 기준에서도 제품에 문제가 없다면 기준 강화는 불필요한 검사와 재작업을 증가시킬 수 있기 때문입니다. 필요 이상으로 엄격한 기준은 정상적인 제품까지 불량으로 처리해 생산비용을 높일 수 있습니다. 현재의 품질을 유지하면서 비용과 생산효율을 관리하는 것이 더 합리적이라고 판단됩니다.""",
-
-        "a_recommendation": "아니요"
-
-    },
-
-    {
-
-        "id": "D1", "category": "품질관리", "dummy": True,
-
-        "role": "당신은 한 제조공장의 생산관리 담당자입니다.",
-
-        "question": """현재 조립공정에서는 작업자가 여러 종류의 부품 중 필요한 부품을 선택해 정해진 방향으로 조립하고 있습니다. 간혹 비슷한 부품을 잘못 선택하거나 방향을 반대로 조립하는 실수가 발생합니다.
-
-오류방지 장치를 적용하면 올바른 부품과 방향일 때만 조립이 가능해 작업자의 오조립을 줄일 수 있습니다. 반면 제품 종류가 변경될 때마다 장치를 다시 설정해야 하고, 예외 작업이나 재작업에 유연하게 대응하기 어려울 수 있습니다.""",
-
-        "choice_prompt": "당신이라면 오류방지 장치를 적용하시겠습니까?",
-
-        "options": "예: 오류방지 장치를 적용한다.\n아니요: 현재 작업방식을 유지한다.",
-
-        "yes_response": """저는 오류방지 장치를 적용하는 것이 좋다고 생각합니다.
-장치를 적용하면 잘못된 부품 선택이나 조립 방향 오류를 공정에서 바로 차단할 수 있기 때문입니다. 작업자의 집중력이나 숙련도에만 의존하지 않고 공정 자체에서 실수를 막을 수 있다는 장점도 있습니다. 추가적인 설정 부담보다 작업자의 실수로 발생하는 오조립을 줄이는 것이 더 중요하다고 판단됩니다.""",
-
-        "no_response": """저는 현재 작업방식을 유지하는 것이 좋다고 생각합니다.
-오류방지 장치를 적용하면 제품 변경이나 예외 작업이 발생할 때마다 추가적인 설정과 조정이 필요할 수 있기 때문입니다. 제품 종류가 자주 바뀌는 공정에서는 장치 설정이 오히려 작업 흐름을 늦추는 요인이 될 수 있습니다. 작업자의 판단을 활용하면서 공정의 유연성을 유지하는 것이 더 합리적이라고 판단됩니다."""
-
-    },
-
-    {
-
-        "id": 3, "category": "산업안전", "dummy": False,
-
-        "role": "당신은 한 제조공장의 안전관리 담당자입니다.",
-
-        "question": """공장에서는 설비의 온도와 진동을 감지해 일정 수준을 넘으면 작업자에게 경보를 보내는 센서를 사용하고 있습니다. 회사에서는 이상 징후를 더 빠르게 파악하기 위해 경보 기준을 현재보다 민감하게 조정하는 방안을 검토하고 있습니다.
-
-경보 기준을 민감하게 하면 작은 이상 징후를 더 빨리 발견할 수 있습니다. 반면 정상적인 변화에도 경보가 발생해 작업이 자주 중단되고, 반복되는 오경보로 작업자가 경보에 둔감해질 수 있습니다.""",
-
-        "choice_prompt": "당신이라면 경보 기준을 현재보다 민감하게 조정하시겠습니까?",
-
-        "options": "예: 경보 기준을 민감하게 조정한다.\n아니요: 현재 경보 기준을 유지한다.",
-
-        "yes_response": """저는 경보 기준을 더 민감하게 조정하는 것이 좋다고 생각합니다.
-작은 이상 징후를 조기에 발견하면 설비 문제가 커지기 전에 대응할 수 있고 잠재적인 위험도 더 빠르게 파악할 수 있기 때문입니다. 초기 단계에서 이상을 확인하면 문제가 커진 뒤 대응하는 것보다 피해를 줄이기 쉽습니다. 일부 오경보가 발생하더라도 이상 상황을 조기에 확인하는 것이 더 중요하다고 판단됩니다.""",
-
-        "no_response": """저는 현재 경보 기준을 유지하는 것이 좋다고 생각합니다.
-경보가 지나치게 민감하면 정상적인 변화에도 작업이 반복적으로 중단되고, 잦은 오경보로 실제 위험 신호에 둔감해질 수 있기 때문입니다. 경보가 필요한 상황에서만 발생해야 작업자가 각 경보를 중요하게 받아들일 수 있습니다. 경보의 신뢰성을 유지하는 것이 더 중요하다고 판단됩니다.""",
-
-        "a_recommendation": "예"
-
-    }
-
-]
-
-
-
-# 3. 화면 스타일: 기존 인터페이스를 유지하고 AI 프로필 아이콘만 추가
+# 각 문항의 실제 제시 순서는 무작위이나 시트 저장 순서는 고정
+QUESTIONS = [{'id': '단순1',
+  'role': '당신은 생활용품 제조공장의 생산관리 담당자입니다.',
+  'question': '최근 주요 설비에서 평소보다 큰 진동과 소음이 발생했지만 정상 작동 중이며, 즉시 중단해야 할 수준은 아닙니다. 현재 진동과 소음이 일시적인 현상인지, 부품 마모로 '
+              '인해 발생한 것인지는 확인되지 않았습니다.\n'
+              '\n'
+              '지금 정비하면 반나절 생산이 중단되지만 고장 위험을 줄일 수 있습니다. 반면 다음 주까지 가동하면 생산 일정은 유지할 수 있지만 갑작스러운 고장으로 장기간 생산이 '
+              '중단될 위험이 있습니다.',
+  'choice_prompt': '어떤 방안을 선택하시겠습니까?',
+  'options': ['A. 지금 즉시 정비한다.', 'B. 다음 주 예정된 날짜에 정비한다.'],
+  'information': '다음은 설비의 진동과 소음이 증가했을 때 서로 다른 방식으로 대응한 과거 사례입니다.\n'
+                 '\n'
+                 '사례 1. 즉시 정비\n'
+                 '설비의 진동과 소음이 증가하여 즉시 점검한 결과, 회전 부품의 마모가 발견되어 교체했습니다. 반나절 동안 생산이 중단됐지만, 이후에는 추가 고장 없이 정상 '
+                 '가동했습니다.\n'
+                 '\n'
+                 '사례 2. 예정일 정비\n'
+                 '다른 시기에는 비슷한 증상이 발생했지만 예정된 정비일까지 설비를 가동했습니다. 그동안 고장은 발생하지 않았으며, 이후 정기 점검에서도 즉시 교체할 수준의 결함은 '
+                 '발견되지 않았습니다.',
+  'evaluation': 'A안. 즉시 정비\n'
+                '설비의 이상 원인을 조기에 확인하고, 부품 마모가 발견되면 고장으로 이어지기 전에 조치할 수 있습니다. 그러나 실제 결함이 크지 않더라도 반나절 동안 생산을 '
+                '중단해야 하므로 불필요한 생산 차질이 발생할 수 있습니다.\n'
+                '\n'
+                'B안. 예정일 정비\n'
+                '설비를 중단하지 않고 기존 생산 일정을 유지할 수 있어 당장의 생산 차질을 피할 수 있습니다. 그러나 실제 부품 마모가 진행 중이라면 정비를 미루는 동안 고장이 '
+                '발생해 반나절보다 긴 생산 중단으로 이어질 수 있습니다.'},
+ {'id': '단순2',
+  'role': '당신은 여러 종류의 제품을 생산하는 제조공장의 생산관리 담당자입니다.',
+  'question': '이 공장은 같은 설비에서 여러 제품을 번갈아 생산하며, 제품이 바뀔 때마다 설비 설정을 변경하느라 생산이 잠시 중단됩니다.\n'
+              '\n'
+              '한 번에 생산하는 양을 늘리면 설비 변경 횟수가 줄어 생산 효율이 높아지지만, 판매되지 않은 제품의 재고가 증가할 수 있습니다. 반대로 현재 생산 배치량을 유지하면 '
+              '재고 부담은 적지만 설비 변경으로 인한 생산 중단이 반복됩니다.',
+  'choice_prompt': '어떤 방안을 선택하시겠습니까?',
+  'options': ['A. 한 번에 생산하는 양을 늘린다.', 'B. 현재 생산 배치량을 유지한다.'],
+  'information': '과거 유사한 제조공장에서도 설비 변경시간과 재고 부담을 고려하여 생산 배치량을 다르게 운영한 사례가 있었습니다.\n'
+                 '\n'
+                 '사례 1. 배치량 확대\n'
+                 '한 제조공장에서는 생산 배치량을 늘려 설비 변경 횟수를 줄이고 생산을 조기에 완료했습니다. 그러나 예상보다 주문량이 감소하면서 재고가 쌓였고, 보관 공간 부족으로 '
+                 '다음 생산계획을 조정해야 했습니다.\n'
+                 '\n'
+                 '사례 2. 기존 배치량 유지\n'
+                 '다른 제조공장에서는 주문량 변화에 대응하기 위해 기존 배치량을 유지했습니다. 갑작스러운 주문 변경에는 유연하게 대응했지만, 잦은 설비 변경으로 생산시간이 부족해 '
+                 '추가 주문의 납기를 재협의해야 했습니다.',
+  'evaluation': 'A안. 생산 배치량 확대\n'
+                '배치량을 늘리면 설비 변경시간이 줄어 생산 효율이 높아집니다. 특히 수요가 안정적일 때 효과적이지만, 수요 변동이 크면 재고와 보관 부담이 증가할 수 있습니다.\n'
+                '\n'
+                'B안. 기존 배치량 유지\n'
+                '기존 배치량을 유지하면 수요 변화에 유연하게 대응하고 재고 부담을 줄일 수 있습니다. 다만 설비 변경이 잦으면 생산 가능 시간이 감소해 추가 주문 대응이 어려워질 '
+                '수 있습니다.'},
+ {'id': '복잡1',
+  'role': '당신은 자동차 부품 제조공장의 생산계획 담당자입니다.',
+  'question': '현재 공장은 기존 고객의 주문을 생산하고 있으며, 설비 가동 일정에 여유가 거의 없습니다.\n'
+              '\n'
+              '그런데 주요 고객사에서 이번 주 안에 긴급 주문을 추가로 생산해 달라고 요청했습니다. 기존 생산을 중단하고 긴급 주문을 우선하면 주요 고객의 납기를 맞출 수 있지만 '
+              '기존 고객의 납품이 지연됩니다.\n'
+              '\n'
+              '반면 기존 생산계획을 유지하면 기존 고객의 납기는 지킬 수 있지만 긴급 주문을 놓칠 수 있습니다.\n'
+              '\n'
+              '설비를 나누어 운영하면 두 주문을 일부 처리할 수 있지만, 제품 전환 과정에서 설비가 멈추고 생산 가능한 총량이 감소합니다.\n'
+              '\n'
+              '기존에 품질 승인을 받은 외부 협력업체를 활용하면 생산 여력은 늘어나지만, 추가 비용과 납품 전 품질 확인 시간이 필요합니다.',
+  'choice_prompt': '현재 상황에서 가장 적절한 생산 운영 방안은 무엇입니까?',
+  'options': ['A. 긴급 주문을 우선 생산한다.',
+              'B. 기존 생산계획을 유지한다.',
+              'C. 설비를 번갈아 운영해 기존 주문과 긴급 주문을 나누어 생산한다.',
+              'D. 긴급 주문 일부를 외부 생산업체에 맡긴다.'],
+  'information': '다음은 생산 일정에 여유가 부족한 상황에서 긴급 주문이 추가되었을 때 서로 다른 방식으로 대응한 과거 사례입니다.\n'
+                 '\n'
+                 '사례 1. 긴급 주문 우선 생산\n'
+                 '주요 고객의 긴급 주문을 처리하기 위해 기존 생산을 중단하고 생산순서를 변경했습니다. 긴급 주문의 납기는 맞췄지만 기존 고객의 납품 일정이 지연되었으며, 지연된 '
+                 '물량을 공급하는 과정에서 추가 운송비가 발생했습니다.\n'
+                 '\n'
+                 '사례 2. 기존 생산계획 유지\n'
+                 '기존 고객과 약속한 납기를 지키기 위해 생산계획을 변경하지 않았습니다. 기존 주문은 모두 예정대로 납품했지만, 긴급 주문을 요청한 주요 고객이 일부 물량을 다른 '
+                 '업체에 발주하면서 추가 주문을 확보하지 못했습니다.\n'
+                 '\n'
+                 '사례 3. 설비 교대 운영\n'
+                 '기존 주문과 긴급 주문을 모두 처리하기 위해 설비를 번갈아 운영했습니다. 두 고객에게 일부 물량을 예정대로 공급했지만, 잦은 제품 전환으로 생산 가능 시간이 '
+                 '감소하여 남은 물량의 생산 일정을 다시 조정해야 했습니다.\n'
+                 '\n'
+                 '사례 4. 외부 협력업체 활용\n'
+                 '긴급 주문 일부를 기존에 품질 승인을 받은 협력업체에 맡겼습니다. 내부 설비의 생산 부담을 줄이고 추가 물량을 확보했지만, 외부 생산품의 품질 확인에 시간이 '
+                 '소요되어 일부 물량의 출하가 지연되었습니다.',
+  'evaluation': 'A안. 긴급 주문 우선 생산\n'
+                '주요 고객의 긴급 납기를 확보할 수 있으며, 기존 주문에 납기 여유가 있다면 일정 조정이 가능합니다. 그러나 기존 고객의 납기 여유가 부족하면 지연 피해가 커질 수 '
+                '있습니다.\n'
+                '\n'
+                'B안. 기존 생산계획 유지\n'
+                '기존 고객의 납기를 지키고 생산계획 변경에 따른 차질을 줄일 수 있습니다. 다만 긴급 주문의 중요도가 높거나 향후 거래 가능성이 크다면 주문을 수용하지 못한 부담이 '
+                '커질 수 있습니다.\n'
+                '\n'
+                'C안. 설비 교대 운영\n'
+                '두 주문을 나누어 처리할 수 있지만, 제품 전환시간이 길수록 실제 생산 가능량이 감소합니다. 따라서 두 주문의 납기 여유가 충분하지 않다면 모두 지연될 가능성이 '
+                '있습니다.\n'
+                '\n'
+                'D안. 외부 업체 활용\n'
+                '추가 생산능력을 확보하면서 기존 생산계획의 변경을 줄일 수 있습니다. 그러나 협력업체의 생산 여력과 품질 확인에 필요한 시간이 부족하면 추가 비용을 부담하고도 '
+                '납기를 맞추기 어려울 수 있습니다.'},
+ {'id': '복잡2',
+  'role': '당신은 물류창고의 안전관리 담당자입니다.',
+  'question': '현재 창고에서는 작업자와 운반 차량이 가까워지면 경고음이 울립니다. 최근 불필요한 경고가 반복되면서 작업자들이 경고에 익숙해져 실제 위험 상황에도 늦게 반응하는 문제가 '
+              '발생하고 있습니다.\n'
+              '\n'
+              '차량 이동이 많은 구역은 빠른 경고가 필요하지만, 이동이 적은 구역에서는 불필요한 경고가 자주 발생하고 있습니다.\n'
+              '\n'
+              '경보 범위를 줄이면 불필요한 경고가 감소할 수 있지만 위험을 알리는 시점도 늦어집니다. 반면 구역별로 경보 범위를 다르게 적용하면 각 구역의 특성에 맞출 수 있지만, '
+              '관리 인력이 부족해 설정 오류가 발생할 가능성이 있습니다.\n'
+              '\n'
+              '또한 개선 예산이 제한되어 있어 LED 경광등을 추가하더라도 일부 구역에만 설치할 수 있습니다. 모든 방안은 필수 안전 기준을 충족하는 범위에서 시행됩니다.',
+  'choice_prompt': '가장 적절한 운영 방안은 무엇입니까?',
+  'options': ['A. 현재 경보 범위를 유지한다.',
+              'B. 모든 구역의 경보 범위를 일부 줄인다.',
+              'C. 차량 이동량에 따라 구역별 경보 범위를 다르게 적용한다.',
+              'D. 기존 경보 범위는 유지하되, 차량 이동이 많은 구역에 LED 경광등을 추가하여 경고음과 시각적 경고를 함께 제공한다.'],
+  'information': '다음은 과거 유사한 물류창고에서 경보 운영 방식을 다르게 적용한 사례입니다.\n'
+                 '\n'
+                 '사례 1. A안 — 경보 범위 유지\n'
+                 '한 물류창고에서는 기존 경보 범위를 유지했습니다. 차량 접근을 조기에 감지했지만 반복적인 경고로 작업자들의 반응이 늦어져 추가 안전교육을 실시했습니다.\n'
+                 '\n'
+                 '사례 2. B안 — 경보 범위 축소\n'
+                 '다른 창고에서는 경보 범위를 축소해 불필요한 경고를 줄였습니다. 그러나 차량 이동이 많은 구역에서는 위험 감지가 늦어져 해당 구역의 경보 범위를 다시 '
+                 '확대했습니다.\n'
+                 '\n'
+                 '사례 3. C안 — 구역별 차등 적용\n'
+                 '한 창고에서는 차량 이동량에 따라 경보 범위를 다르게 적용했습니다. 불필요한 경고는 줄었지만, 일부 구역에서 설정 오류가 발견되어 전체 경보 설정을 '
+                 '재점검했습니다.\n'
+                 '\n'
+                 '사례 4. D안 — LED 경광등 추가\n'
+                 '다른 창고에서는 차량 이동이 많은 구역에 LED 경광등을 추가했습니다. 작업자들의 차량 접근 인식이 개선됐지만, 미설치 구역에서는 경고 피로가 지속되어 추가 '
+                 '설치를 검토했습니다.',
+  'evaluation': 'A안. 경보 범위 유지\n'
+                '기존 경보 범위를 유지하면 위험을 조기에 감지하고 현재 운영 체계를 그대로 활용할 수 있습니다. 그러나 불필요한 경고가 반복되면 작업자의 반응이 둔해져 실제 위험 '
+                '상황에서도 대응이 늦어질 수 있습니다.\n'
+                '\n'
+                'B안. 경보 범위 축소\n'
+                '불필요한 경고를 줄여 작업자의 반응을 개선할 수 있습니다. 하지만 위험 감지 시점도 늦어지므로, 차량 이동이 많은 구역에서는 충분한 대응 시간을 확보하지 못할 수 '
+                '있습니다.\n'
+                '\n'
+                'C안. 구역별 차등 적용\n'
+                '구역별 이동 특성에 맞춰 경보 범위를 조정하면 불필요한 경고를 줄일 수 있습니다. 그러나 구역마다 다른 기준을 관리해야 하므로 운영 부담이 증가하고, 설정 오류가 '
+                '발생하면 위험 감지가 적절히 이루어지지 않을 수 있습니다.\n'
+                '\n'
+                'D안. LED 경광등 추가\n'
+                '기존 경보 범위를 유지하면서 LED 경광등을 추가하면 조기 감지 기능을 유지하고 차량 접근을 더 쉽게 인식할 수 있습니다. 다만 설치 예산으로 인해 개선 범위가 '
+                '제한되고, 미설치 구역의 경고 피로는 지속될 수 있습니다.'}]
 
 st.markdown("""
 
@@ -141,15 +173,13 @@ st.markdown("""
 
 
 
-# 4. 세션 초기화: 최초 접속 시점부터 전체 사용시간 측정 시작
 
 if "initialized" not in st.session_state:
-
-    st.session_state.update(initialized=True, participant_id=str(uuid.uuid4())[:8], group=random.choice(["A", "B"]), stage="intro_1", chat_history=[], new_message_index=None, responses=[], question_index=0, age=None, gai_frequency=None, gai_trust=None, domain_knowledge=None, initial_choice=None, initial_confidence=None, ai_recommendation=None, ai_response=None, final_choice=None, pre_decision_start=None, pre_decision_time=None, post_decision_start=None, post_decision_time=None, experiment_start=time.perf_counter(), total_use_time=None, saved=False, saving=False)
-
-
-
-# 5. 채팅 출력 및 자동 스크롤
+    order=list(range(4)); random.shuffle(order)
+    st.session_state.update(initialized=True, participant_id=str(uuid.uuid4())[:8], group=random.choice("ABCD"),
+        question_order=order, question_index=0, responses={}, stage="intro_1", chat_history=[], new_message_index=None,
+        age=None, gai_frequency=None, gai_trust=None, domain_knowledge=None,
+        initial_choice=None, initial_confidence=None, final_choice=None, saved=False, saving=False)
 
 ROBOT_SVG = '''<svg viewBox="0 0 24 24" fill="none" stroke="#59636e" stroke-width="1.7"><rect x="5" y="7" width="14" height="11" rx="3"/><path d="M12 4v3M9 12h.01M15 12h.01M9 15h6"/><circle cx="12" cy="3" r="1" fill="#59636e" stroke="none"/></svg>'''
 
@@ -229,379 +259,200 @@ def delayed_ai(text, next_stage):
 
 
 
-# 6. 실험 로직: 더미는 집단과 무관하게 초기선택을 지지, 본문제의 기존 A/B 로직은 유지
 
-def determine_ai_response():
-
-    q = QUESTIONS[st.session_state.question_index]
-
-    if q["dummy"]:
-
-        rec = st.session_state.initial_choice
-
-    elif st.session_state.group == "A":
-
-        rec = q["a_recommendation"]
-
-    else:
-
-        rec = "아니요" if st.session_state.initial_choice == "예" else "예"
-
-    st.session_state.ai_recommendation = rec
-
-    st.session_state.ai_response = q["yes_response"] if rec == "예" else q["no_response"]
-
-
+# 화면에 표시되는 문제 번호와 분석용 문항 ID를 분리
+def current_question():
+    return QUESTIONS[st.session_state.question_order[st.session_state.question_index]]
 
 def reset_question_state():
+    for key in ("initial_choice", "initial_confidence", "final_choice"):
+        st.session_state[key]=None
 
-    for key in ["initial_choice", "initial_confidence", "ai_recommendation", "ai_response", "final_choice", "pre_decision_start", "pre_decision_time", "post_decision_start", "post_decision_time"]:
-
-        st.session_state[key] = None
-
-
-
-# 7. Google Sheets 저장: 문항별 완료시각 제거, 마지막 열에 전체 사용시간(초) 저장
-
-# 더미문항은 화면상 동일하게 진행하지만 responses에 넣지 않으므로 시트에 기록되지 않음.
-
-# 동일 참가자의 종료 버튼 연속 클릭은 프로세스 공용 잠금+참가자번호로 한 번만 POST한다.
-
+# 서버 프로세스에서 동일 참가자 중복 POST 방지
 @st.cache_resource
-
 def get_save_registry():
-
     return {"lock": threading.Lock(), "saved_ids": set()}
 
-
+def save_data():
+    s=st.session_state
+    row={"참가자번호":s.participant_id,"실험집단":s.group,"연령대":s.age,
+         "생성형AI_사용빈도":s.gai_frequency,"생성형AI_신뢰도":s.gai_trust,
+         "산업분야_사전지식":s.domain_knowledge}
+    for ident in ("단순1","단순2","복잡1","복잡2"):
+        r=s.responses[ident]
+        for key,value in (("최초선택",r["initial_choice"]),("최초확신도",r["initial_confidence"]),
+                          ("최종선택",r["final_choice"]),("최종확신도",r["final_confidence"]),
+                          ("선택변경여부",r["choice_changed"]),("확신도변화",r["confidence_change"])):
+            row[f"{ident}_{key}"]=value
+    row["응답일시"]=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    response=requests.post(GOOGLE_SCRIPT_URL,json=row,timeout=30)
+    response.raise_for_status()
+    try: result=response.json()
+    except ValueError: raise RuntimeError("Google Sheets 서버에서 JSON 응답을 받지 못했습니다.")
+    if result.get("status")!="success": raise RuntimeError(f"Google Sheets 저장 실패: {result}")
 
 def save_data_once():
-
-    registry = get_save_registry()
-
-    pid = st.session_state.participant_id
-
+    registry=get_save_registry(); pid=st.session_state.participant_id
     with registry["lock"]:
-
-        if pid in registry["saved_ids"]:
-
-            return False
-
-        save_data()
-
-        registry["saved_ids"].add(pid)
-
+        if pid in registry["saved_ids"]: return False
+        save_data(); registry["saved_ids"].add(pid)
         return True
 
-
-
-def save_data():
-
-    row = {"참가자번호": st.session_state.participant_id, "실험집단": st.session_state.group, "연령대": st.session_state.age, "생성형AI_사용빈도": st.session_state.gai_frequency, "생성형AI_신뢰도": st.session_state.gai_trust, "산업분야_사전지식": st.session_state.domain_knowledge}
-
-    for r in st.session_state.responses:
-
-        q = r["question_id"]
-
-        row.update({f"문항{q}_최초선택": r["initial_choice"], f"문항{q}_최초확신도": r["initial_confidence"], f"문항{q}_AI추천": r["ai_recommendation"], f"문항{q}_최종선택": r["final_choice"], f"문항{q}_최종확신도": r["final_confidence"], f"문항{q}_선택변경여부": r["choice_changed"], f"문항{q}_AI추천수용여부": r["ai_accepted"], f"문항{q}_조언전_순수판단시간_초": r["pre_decision_time"], f"문항{q}_조언후_순수판단시간_초": r["post_decision_time"]})
-
-    row["전체_사용시간_초"] = st.session_state.total_use_time
-    row["응답일시"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    response = requests.post(GOOGLE_SCRIPT_URL, json=row, timeout=30); response.raise_for_status()
-
-    try: result = response.json()
-
-    except ValueError: raise RuntimeError("Google Sheets 서버가 올바른 JSON 응답을 반환하지 않았습니다.")
-
-    if result.get("status") != "success": raise RuntimeError(f"Google Sheets 저장 실패: {result}")
-
-
-
-# 8. 반복 UI 함수: 기존 버튼 모양과 동작은 유지하면서 중복 코드만 축약
-
 def choice_buttons(prefix):
-
-    cols = st.columns([1, 1, 2.8]); result = None
-
-    with cols[0]:
-
-        if st.button("예", key=f"{prefix}_yes_{st.session_state.question_index}", use_container_width=True): result = "예"
-
-    with cols[1]:
-
-        if st.button("아니요", key=f"{prefix}_no_{st.session_state.question_index}", use_container_width=True): result = "아니요"
-
-    return result
-
-
+    options=current_question()["options"]
+    if len(options)==2:
+        cols=st.columns([1,1,0.3])
+    else:
+        cols=st.columns([1])
+    selected=None
+    for i,option in enumerate(options):
+        with cols[i if len(options)==2 else 0]:
+            if st.button(option,key=f"{prefix}_{st.session_state.question_index}_{i}",use_container_width=True):
+                selected="ABCD"[i]
+    return selected
 
 def rating_buttons(prefix):
-
-    cols = st.columns([1,1,1,1,1,1,1,2])
-
-    for i in range(1, 8):
-
+    cols=st.columns([1,1,1,1,1,1,1,2])
+    for i in range(1,8):
         with cols[i-1]:
-
-            if st.button(str(i), key=f"{prefix}_{st.session_state.question_index}_{i}", use_container_width=True): return i
-
+            if st.button(str(i),key=f"{prefix}_{st.session_state.question_index}_{i}",use_container_width=True): return i
     return None
 
+st.markdown('<div class="chat-header">인간-AI 의사결정 실험</div><div class="chat-subheader">AI Decision Assistant</div>',unsafe_allow_html=True)
+stage=st.session_state.stage
 
-
-# 9. 제목 및 상태 머신: 참가자에게 보이는 기존 진행방식은 그대로 유지
-
-st.markdown('<div class="chat-header">인간-AI 의사결정 실험</div><div class="chat-subheader">AI Decision Assistant</div>', unsafe_allow_html=True)
-
-stage = st.session_state.stage
-
-
-
-if stage == "intro_1":
-
-    add_ai("안녕하세요.\n지금부터 산업 현장에서 발생할 수 있는 여러 의사결정 상황을 제시하겠습니다."); st.session_state.stage = "intro_2"; st.rerun()
-
-elif stage == "intro_2":
-
-    render_chat(); delayed_ai("각 상황을 확인한 뒤 본인의 판단에 따라 선택해 주세요.\n이후 제가 해당 상황을 분석한 결과를 알려드리겠습니다.\n문항은 총 4문제입니다.\n정답을 맞히는 시험이 아니므로 본인의 판단에 따라 응답해 주세요.", "intro_3")
-
-elif stage == "intro_3":
-
-    render_chat(); delayed_ai("실험에는 약 5분이 소요됩니다.\n실험 참여 및 익명 데이터 수집에 동의하시면 아래 버튼을 눌러주세요.", "consent")
-
-elif stage == "consent":
-
-    render_chat(); cols = st.columns([2.2,1.8])
-
-    with cols[0]:
-
-        if st.button("동의하고 실험 시작", use_container_width=True): add_user("동의하고 실험 시작"); st.session_state.stage="survey_intro"; st.rerun()
-
-elif stage == "survey_intro":
-
-    render_chat(); delayed_ai("실험을 시작하기 전에 몇 가지 간단한 질문을 드리겠습니다.", "survey_age_question")
-
-elif stage == "survey_age_question":
-
-    render_chat(); delayed_ai("먼저 연령대를 선택해 주세요.", "survey_age")
-
-elif stage == "survey_age":
-
-    render_chat(); options=["29세 이하","30세부터 49세","50세 이상"]; cols=st.columns([1,1,1])
-
-    for i, option in enumerate(options):
-
+if stage=="intro_1":
+    add_ai("안녕하세요.\n지금부터 산업 현장에서 발생할 수 있는 의사결정 상황을 제시하겠습니다.")
+    st.session_state.stage="intro_2"; st.rerun()
+elif stage=="intro_2":
+    render_chat(); delayed_ai("각 상황을 읽고 본인의 판단에 따라 선택해 주세요.\n이후 제공되는 정보를 확인하고 다시 선택하게 됩니다.\n문항은 총 4문제이며, 정답을 맞히는 시험이 아닙니다.","intro_3")
+elif stage=="intro_3":
+    render_chat(); delayed_ai("실험 참여 및 익명 데이터 수집에 동의하시면 아래 버튼을 눌러주세요.","consent")
+elif stage=="consent":
+    render_chat()
+    if st.button("동의하고 실험 시작"):
+        add_user("동의하고 실험 시작"); st.session_state.stage="survey_intro"; st.rerun()
+elif stage=="survey_intro":
+    render_chat(); delayed_ai("실험을 시작하기 전에 몇 가지 간단한 질문을 드리겠습니다.","survey_age_question")
+elif stage=="survey_age_question":
+    render_chat(); delayed_ai("먼저 연령대를 선택해 주세요.","survey_age")
+elif stage=="survey_age":
+    render_chat(); opts=["29세 이하","30세부터 49세","50세 이상"]
+    cols=st.columns(3)
+    for i,opt in enumerate(opts):
         with cols[i]:
-
-            if st.button(option,key=f"age_{i}",use_container_width=True): st.session_state.age=option; add_user(option); st.session_state.stage="frequency_question"; st.rerun()
-
-elif stage == "frequency_question":
-
-    render_chat(); delayed_ai("평소 생성형 AI를 얼마나 자주 사용하십니까?", "frequency")
-
-elif stage == "frequency":
-
-    # 모바일·PC 모두 위에서 아래로 동일한 순서가 유지되도록 단일 열에 배치
-
+            if st.button(opt,key=f"age_{i}",use_container_width=True):
+                st.session_state.age=opt; add_user(opt); st.session_state.stage="frequency_question"; st.rerun()
+elif stage=="frequency_question":
+    render_chat(); delayed_ai("평소 생성형 AI를 얼마나 자주 사용하십니까?","frequency")
+elif stage=="frequency":
+    # 기존 실험과 동일한 5개 빈도 범주를 순서대로 표시합니다.
     render_chat(); options=["거의 사용하지 않음","월 1~3회","주 1~2회","주 3~5회","거의 매일"]
-
-    for i, option in enumerate(options):
-
-        if st.button(option,key=f"frequency_{i}",use_container_width=True): st.session_state.gai_frequency=option; add_user(option); st.session_state.stage="trust_question"; st.rerun()
-
-elif stage == "trust_question":
-
-    render_chat(); delayed_ai("평소 생성형 AI가 제공하는 정보를 어느 정도 신뢰하십니까?\n1은 전혀 신뢰하지 않음, 7은 매우 신뢰함을 의미합니다.", "trust")
-
-elif stage == "trust":
-
+    for i,option in enumerate(options):
+        if st.button(option,key=f"frequency_{i}",use_container_width=True):
+            st.session_state.gai_frequency=option; add_user(option); st.session_state.stage="trust_question"; st.rerun()
+elif stage=="trust_question":
+    render_chat(); delayed_ai("평소 생성형 AI가 제공하는 정보를 어느 정도 신뢰하십니까?\n1은 전혀 신뢰하지 않음, 7은 매우 신뢰함을 의미합니다.","trust")
+elif stage=="trust":
     render_chat(); value=rating_buttons("trust")
-
-    if value: st.session_state.gai_trust=value; add_user(str(value)); st.session_state.stage="knowledge_question"; st.rerun()
-
-elif stage == "knowledge_question":
-
-    render_chat(); delayed_ai("생산·품질·안전 등 산업 현장에 대한 본인의 사전 지식 수준은 어느 정도입니까?\n1은 거의 지식이 없음, 7은 매우 잘 알고 있음을 의미합니다.", "knowledge")
-
-elif stage == "knowledge":
-
+    if value is not None:
+        st.session_state.gai_trust=value; add_user(str(value)); st.session_state.stage="knowledge_question"; st.rerun()
+elif stage=="knowledge_question":
+    render_chat(); delayed_ai("생산·품질·안전 등 산업 현장에 대한 본인의 사전 지식 수준은 어느 정도입니까?\n1은 거의 지식이 없음, 7은 매우 잘 알고 있음을 의미합니다.","knowledge")
+elif stage=="knowledge":
     render_chat(); value=rating_buttons("knowledge")
-
-    if value: st.session_state.domain_knowledge=value; add_user(str(value)); st.session_state.stage="survey_complete"; st.rerun()
-
-elif stage == "survey_complete":
-
-    render_chat(); delayed_ai("감사합니다. 이제 의사결정 상황을 시작하겠습니다.", "decision_start")
-
-elif stage == "decision_start":
-
-    render_chat(); cols=st.columns([1.5,2])
-
-    with cols[0]:
-
-        if st.button("의사결정 시작",use_container_width=True): add_user("의사결정 시작"); st.session_state.stage="question_category"; st.rerun()
-
-elif stage == "question_category":
-
-    render_chat(); delayed_ai(f"{st.session_state.question_index + 1}번 문항입니다.", "question_role")
-
-elif stage == "question_role":
-
-    render_chat(); delayed_ai(QUESTIONS[st.session_state.question_index]["role"], "question_text")
-
-elif stage == "question_text":
-
-    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(f"{q['question']}\n{q['choice_prompt']}", "question_options")
-
-elif stage == "question_options":
-
-    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(q["options"], "initial_choice")
-
-elif stage == "initial_choice":
-
+    if value is not None:
+        st.session_state.domain_knowledge=value; add_user(str(value)); st.session_state.stage="survey_complete"; st.rerun()
+elif stage=="survey_complete":
+    render_chat(); delayed_ai("감사합니다. 이제 의사결정 상황을 시작하겠습니다.","decision_start")
+elif stage=="decision_start":
     render_chat()
-
-    if st.session_state.pre_decision_start is None: st.session_state.pre_decision_start=time.perf_counter()
-
-    value=choice_buttons("initial")
-
-    if value:
-
-        st.session_state.pre_decision_time=round(time.perf_counter()-st.session_state.pre_decision_start,2); st.session_state.initial_choice=value; add_user(value); st.session_state.stage="initial_confidence_question"; st.rerun()
-
-elif stage == "initial_confidence_question":
-
-    render_chat(); delayed_ai("현재 판단에 얼마나 확신하십니까?\n1은 전혀 확신하지 않음, 7은 매우 확신함을 의미합니다.", "initial_confidence")
-
-elif stage == "initial_confidence":
-
+    if st.button("의사결정 시작"):
+        add_user("의사결정 시작"); st.session_state.stage="question_category"; st.rerun()
+elif stage=="question_category":
+    render_chat(); delayed_ai(f"{st.session_state.question_index+1}번 문항입니다.","question_role")
+elif stage=="question_role":
+    render_chat(); delayed_ai(current_question()["role"],"question_text")
+elif stage=="question_text":
+    render_chat(); q=current_question(); delayed_ai(q["question"]+"\n"+q["choice_prompt"],"question_options")
+elif stage=="question_options":
+    render_chat(); delayed_ai("\n".join(current_question()["options"]),"initial_choice")
+elif stage=="initial_choice":
+    render_chat(); value=choice_buttons("initial")
+    if value is not None:
+        st.session_state.initial_choice=value; add_user(value); st.session_state.stage="initial_confidence_question"; st.rerun()
+elif stage=="initial_confidence_question":
+    render_chat(); delayed_ai("현재 판단에 얼마나 확신하십니까?\n1은 전혀 확신하지 않음, 7은 매우 확신함을 의미합니다.","initial_confidence")
+elif stage=="initial_confidence":
     render_chat(); value=rating_buttons("initial_conf")
-
-    if value: st.session_state.initial_confidence=value; add_user(str(value)); determine_ai_response(); st.session_state.stage="ai_analysis_1"; st.rerun()
-
-elif stage == "ai_analysis_1":
-
-    render_chat(); add_ai("상황을 분석해 보겠습니다."); st.session_state.stage="ai_typing"; st.rerun()
-
-elif stage == "ai_typing":
-
-    render_chat(); st.markdown(f'<div class="ai-message"><div class="ai-profile">{ROBOT_SVG}</div><div class="ai-content"><div class="ai-name">AI 의사결정 도우미</div><div class="ai-row"><div class="ai-bubble"><div class="typing"><span></span><span></span><span></span></div></div></div></div></div>', unsafe_allow_html=True); scroll_bottom(); time.sleep(3); st.session_state.stage="ai_analysis_2"; st.rerun()
-
-elif stage == "ai_analysis_2":
-
-    render_chat(); delayed_ai(f"제 분석 결과, 저는 {st.session_state.ai_recommendation}를 추천합니다.", "ai_analysis_3")
-
-elif stage == "ai_analysis_3":
-
-    render_chat(); delayed_ai(st.session_state.ai_response, "ai_read_complete")
-
-elif stage == "ai_read_complete":
-
-    render_chat(); cols=st.columns([1.4,2])
-
-    with cols[0]:
-
-        if st.button("최종 결정하기",key=f"start_final_{st.session_state.question_index}",use_container_width=True): add_user("최종 결정하기"); st.session_state.stage="final_question_repeat"; st.rerun()
-
-elif stage == "final_question_repeat":
-
-    render_chat(); q=QUESTIONS[st.session_state.question_index]; delayed_ai(f"{q['question']}\n{q['choice_prompt']}", "final_question_options")
-
-elif stage == "final_question_options":
-
-    render_chat(); delayed_ai(QUESTIONS[st.session_state.question_index]["options"], "final_instruction")
-
-elif stage == "final_instruction":
-
-    render_chat(); delayed_ai("최종 판단을 내려주세요.", "final_choice")
-
-elif stage == "final_choice":
-
+    if value is not None:
+        st.session_state.initial_confidence=value; add_user(str(value)); st.session_state.stage="support_start"; st.rerun()
+elif stage=="support_start":
     render_chat()
-
-    if st.session_state.post_decision_start is None: st.session_state.post_decision_start=time.perf_counter()
-
-    value=choice_buttons("final")
-
-    if value:
-
-        st.session_state.post_decision_time=round(time.perf_counter()-st.session_state.post_decision_start,2); st.session_state.final_choice=value; add_user(value); st.session_state.stage="final_confidence_question"; st.rerun()
-
-elif stage == "final_confidence_question":
-
-    render_chat(); delayed_ai("최종 판단에 얼마나 확신하십니까?\n1은 전혀 확신하지 않음, 7은 매우 확신함을 의미합니다.", "final_confidence")
-
-elif stage == "final_confidence":
-
+    # A집단에는 AI 정보와 대안평가를 전혀 노출하지 않음
+    if st.session_state.group=="A": st.session_state.stage="final_instruction"; st.rerun()
+    add_ai("상황을 분석해 보겠습니다."); st.session_state.stage="support_typing"; st.rerun()
+elif stage=="support_typing":
+    render_chat(); st.markdown(f'<div class="ai-message"><div class="ai-profile">{ROBOT_SVG}</div><div class="ai-content"><div class="ai-name">AI 의사결정 도우미</div><div class="ai-row"><div class="ai-bubble"><div class="typing"><span></span><span></span><span></span></div></div></div></div></div>',unsafe_allow_html=True)
+    scroll_bottom(); time.sleep(3); st.session_state.stage="support_info"; st.rerun()
+elif stage=="support_info":
+    render_chat()
+    if st.session_state.group in ("B","D"):
+        delayed_ai("AI 분석 결과 — 과거 유사 사례\n"+current_question()["information"],"support_eval")
+    else: st.session_state.stage="support_eval"; st.rerun()
+elif stage=="support_eval":
+    render_chat()
+    if st.session_state.group in ("C","D"):
+        delayed_ai("AI 분석 결과 — 대안별 평가\n"+current_question()["evaluation"],"support_complete")
+    else: st.session_state.stage="support_complete"; st.rerun()
+elif stage=="support_complete":
+    render_chat()
+    if st.button("다음으로"):
+        add_user("다음으로"); st.session_state.stage="final_instruction"; st.rerun()
+elif stage=="final_instruction":
+    render_chat(); delayed_ai("다시 선택해 주세요.","final_question_repeat")
+elif stage=="final_question_repeat":
+    render_chat(); q=current_question(); delayed_ai(q["question"]+"\n"+q["choice_prompt"],"final_options")
+elif stage=="final_options":
+    render_chat(); delayed_ai("\n".join(current_question()["options"]),"final_choice")
+elif stage=="final_choice":
+    render_chat(); value=choice_buttons("final")
+    if value is not None:
+        st.session_state.final_choice=value; add_user(value); st.session_state.stage="final_confidence_question"; st.rerun()
+elif stage=="final_confidence_question":
+    render_chat(); delayed_ai("최종 판단에 얼마나 확신하십니까?\n1은 전혀 확신하지 않음, 7은 매우 확신함을 의미합니다.","final_confidence")
+elif stage=="final_confidence":
     render_chat(); value=rating_buttons("final_conf")
-
-    if value:
-
-        q=QUESTIONS[st.session_state.question_index]
-
-        # 더미문항은 동일 절차를 수행하되 분석 데이터에는 넣지 않음.
-
-        if not q["dummy"]:
-
-            st.session_state.responses.append({"question_id":q["id"],"initial_choice":st.session_state.initial_choice,"initial_confidence":st.session_state.initial_confidence,"ai_recommendation":st.session_state.ai_recommendation,"final_choice":st.session_state.final_choice,"final_confidence":value,"choice_changed":int(st.session_state.initial_choice!=st.session_state.final_choice),"ai_accepted":int(st.session_state.final_choice==st.session_state.ai_recommendation),"pre_decision_time":st.session_state.pre_decision_time,"post_decision_time":st.session_state.post_decision_time})
-
-        add_user(str(value)); next_index=st.session_state.question_index+1; st.session_state.question_index=next_index
-
-        if next_index>=len(QUESTIONS): st.session_state.stage="finish_1"
-
-        else: reset_question_state(); st.session_state.stage="question_category"
-
+    if value is not None:
+        s=st.session_state; q=current_question()
+        s.responses[q["id"]]={"initial_choice":s.initial_choice,"initial_confidence":s.initial_confidence,
+            "final_choice":s.final_choice,"final_confidence":value,
+            "choice_changed":int(s.initial_choice!=s.final_choice),
+            "confidence_change":value-s.initial_confidence}
+        add_user(str(value)); s.question_index+=1
+        if s.question_index==4: s.stage="finish_1"
+        else: reset_question_state(); s.stage="question_category"
         st.rerun()
-
-elif stage == "finish_1":
-
-    render_chat(); delayed_ai("모든 의사결정 상황이 완료되었습니다.", "finish_2")
-
-elif stage == "finish_2":
-
-    render_chat(); delayed_ai("실험에 참여해 주셔서 감사합니다.\n오늘도 좋은 하루 보내세요 😄\n아래 종료 버튼을 눌러 실험을 마쳐주세요.", "finished")
-
-elif stage == "finished":
-
-    render_chat(); st.markdown(f'<div style="text-align:center;color:#999;font-size:12px;margin-top:20px;margin-bottom:10px">참가자 번호: {st.session_state.participant_id}</div>',unsafe_allow_html=True); cols=st.columns([1.2,1,1.2])
-
+elif stage=="finish_1":
+    render_chat(); delayed_ai("모든 의사결정 상황이 완료되었습니다.","finish_2")
+elif stage=="finish_2":
+    render_chat(); delayed_ai("실험에 참여해 주셔서 감사합니다.\n오늘도 좋은 하루 보내세요.\n아래 종료 버튼을 눌러 실험을 마쳐주세요.","finished")
+elif stage=="finished":
+    render_chat(); st.markdown(f'<div style="text-align:center;color:#999;font-size:12px;margin-top:20px;margin-bottom:10px">참가자 번호: {st.session_state.participant_id}</div>',unsafe_allow_html=True)
+    cols=st.columns([1.2,1,1.2])
     with cols[1]:
-
         if st.button("종료",type="primary",use_container_width=True,disabled=st.session_state.saving or st.session_state.saved):
-
-            # 클릭 즉시 저장 전용 단계로 이동해 연속 클릭이 같은 응답을 여러 번 전송하지 못하게 함.
-
-            if st.session_state.total_use_time is None: st.session_state.total_use_time=round(time.perf_counter()-st.session_state.experiment_start,2)
-
             st.session_state.saving=True; st.session_state.stage="saving"; st.rerun()
-
-elif stage == "saving":
-
+elif stage=="saving":
     render_chat()
-
     if not st.session_state.saved:
-
         try:
-
             save_data_once(); st.session_state.saved=True; st.session_state.saving=False; st.session_state.stage="closed"; st.rerun()
-
         except Exception as e:
-
             st.session_state.saving=False; st.session_state.stage="finished"
-
             st.error("응답 저장 중 오류가 발생했습니다. 종료 버튼을 다시 눌러주세요."); st.code(str(e)); st.stop()
-
     else:
-
         st.session_state.saving=False; st.session_state.stage="closed"; st.rerun()
-
-elif stage == "closed":
-
-    render_chat(); st.markdown('<div style="text-align:center;margin-top:25px;font-size:15px;color:#666;line-height:1.7">실험이 종료되었습니다.<br>참여해 주셔서 감사합니다.<br>오늘도 좋은 하루 보내세요 😄<br><br>이 창을 닫으셔도 됩니다.</div>',unsafe_allow_html=True)
-
-    st.components.v1.html("""<script>setTimeout(function(){try{window.parent.close();}catch(e){}},400);</script>""",height=0)
-
-
-
+elif stage=="closed":
+    render_chat(); st.markdown('<div style="text-align:center;margin-top:25px;font-size:15px;color:#666;line-height:1.7">실험이 종료되었습니다.<br>참여해 주셔서 감사합니다.<br>이 창을 닫으셔도 됩니다.</div>',unsafe_allow_html=True)
 scroll_bottom()
