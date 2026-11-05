@@ -307,7 +307,7 @@ def choice_buttons(prefix):
     selected=None
     for i,option in enumerate(options):
         with cols[i if len(options)==2 else 0]:
-            if st.button(option,key=f"{prefix}_{st.session_state.question_index}_{i}",use_container_width=True):
+            if st.button("ABCD"[i],key=f"{prefix}_{st.session_state.question_index}_{i}",use_container_width=True):
                 selected="ABCD"[i]
     return selected
 
@@ -364,7 +364,7 @@ elif stage=="knowledge":
     if value is not None:
         st.session_state.domain_knowledge=value; add_user(str(value)); st.session_state.stage="survey_complete"; st.rerun()
 elif stage=="survey_complete":
-    render_chat(); delayed_ai("감사합니다. 이제 의사결정 상황을 시작하겠습니다.","decision_start")
+    render_chat(); delayed_ai("감사합니다. 이제 상황과 대안을 제시하겠습니다.","decision_start")
 elif stage=="decision_start":
     render_chat()
     if st.button("의사결정 시작"):
@@ -397,14 +397,46 @@ elif stage=="support_typing":
     scroll_bottom(); time.sleep(3); st.session_state.stage="support_info"; st.rerun()
 elif stage=="support_info":
     render_chat()
-    if st.session_state.group in ("B","D"):
-        delayed_ai("AI 분석 결과 — 과거 유사 사례\n"+current_question()["information"],"support_eval")
-    else: st.session_state.stage="support_eval"; st.rerun()
+    if st.session_state.group in ("B", "D"):
+        st.session_state.support_parts = ["AI 분석 결과 — 과거 유사 사례"] + current_question()["information"].split("\n\n")
+        st.session_state.support_part_index = 0
+        st.session_state.stage = "support_info_parts"
+    else:
+        st.session_state.stage = "support_eval"
+    st.rerun()
+elif stage=="support_info_parts":
+    render_chat()
+    i = st.session_state.support_part_index
+    parts = st.session_state.support_parts
+    if i < len(parts):
+        delayed_ai(parts[i], "support_info_next")
+    else:
+        st.session_state.stage = "support_eval"; st.rerun()
+elif stage=="support_info_next":
+    st.session_state.support_part_index += 1
+    st.session_state.stage = "support_info_parts"
+    st.rerun()
 elif stage=="support_eval":
     render_chat()
-    if st.session_state.group in ("C","D"):
-        delayed_ai("AI 분석 결과 — 대안별 평가\n"+current_question()["evaluation"],"support_complete")
-    else: st.session_state.stage="support_complete"; st.rerun()
+    if st.session_state.group in ("C", "D"):
+        st.session_state.support_parts = ["AI 분석 결과 — 대안별 평가"] + current_question()["evaluation"].split("\n\n")
+        st.session_state.support_part_index = 0
+        st.session_state.stage = "support_eval_parts"
+    else:
+        st.session_state.stage = "support_complete"
+    st.rerun()
+elif stage=="support_eval_parts":
+    render_chat()
+    i = st.session_state.support_part_index
+    parts = st.session_state.support_parts
+    if i < len(parts):
+        delayed_ai(parts[i], "support_eval_next")
+    else:
+        st.session_state.stage = "support_complete"; st.rerun()
+elif stage=="support_eval_next":
+    st.session_state.support_part_index += 1
+    st.session_state.stage = "support_eval_parts"
+    st.rerun()
 elif stage=="support_complete":
     render_chat()
     if st.button("다음으로"):
