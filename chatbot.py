@@ -391,7 +391,7 @@ elif stage=="support_start":
     render_chat()
     # A집단에는 AI 정보와 대안평가를 전혀 노출하지 않음
     if st.session_state.group=="A": st.session_state.stage="final_instruction"; st.rerun()
-    add_ai("상황을 분석해 보겠습니다."); st.session_state.stage="support_typing"; st.rerun()
+    add_ai("AI가 상황을 분석 중입니다."); st.session_state.stage="support_typing"; st.rerun()
 elif stage=="support_typing":
     render_chat(); st.markdown(f'<div class="ai-message"><div class="ai-profile">{ROBOT_SVG}</div><div class="ai-content"><div class="ai-name">AI 의사결정 도우미</div><div class="ai-row"><div class="ai-bubble"><div class="typing"><span></span><span></span><span></span></div></div></div></div></div>',unsafe_allow_html=True)
     scroll_bottom(); time.sleep(3); st.session_state.stage="support_info"; st.rerun()
@@ -411,10 +411,28 @@ elif stage=="support_info_parts":
     if i < len(parts):
         delayed_ai(parts[i], "support_info_next")
     else:
-        st.session_state.stage = "support_eval"; st.rerun()
+        st.session_state.stage = "support_between" if st.session_state.group == "D" else "support_eval"; st.rerun()
 elif stage=="support_info_next":
     st.session_state.support_part_index += 1
     st.session_state.stage = "support_info_parts"
+    st.rerun()
+elif stage=="support_between":
+    render_chat()
+    if st.button("다음으로", key="between_supports"):
+        add_user("다음으로")
+        st.session_state.stage = "support_eval_intro"
+        st.rerun()
+elif stage=="support_eval_intro":
+    render_chat()
+    add_ai("다음은 대안별 평가입니다.")
+    st.session_state.stage = "support_eval_typing"
+    st.rerun()
+elif stage=="support_eval_typing":
+    render_chat()
+    st.markdown(f'<div class="ai-message"><div class="ai-profile">{ROBOT_SVG}</div><div class="ai-content"><div class="ai-name">AI 의사결정 도우미</div><div class="ai-row"><div class="ai-bubble"><div class="typing"><span></span><span></span><span></span></div></div></div></div></div>',unsafe_allow_html=True)
+    scroll_bottom()
+    time.sleep(3)
+    st.session_state.stage = "support_eval"
     st.rerun()
 elif stage=="support_eval":
     render_chat()
