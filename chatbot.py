@@ -278,11 +278,11 @@ def save_data():
     row={"참가자번호":s.participant_id,"실험집단":s.group,"연령대":s.age,
          "생성형 AI 사용빈도":s.gai_frequency,"생성형 AI 신뢰도":s.gai_trust,
          "산업공학 사전지식":s.domain_knowledge}
-    # 핵심 종속변수 8개를 통제변수 바로 뒤에 배치합니다.
+    # 선택변경여부 4개, 확신도변화 4개 순서로 핵심 종속변수를 배치합니다.
     for ident in ("단순1","단순2","복잡1","복잡2"):
-        r=s.responses[ident]
-        row[f"{ident} 선택변경여부"]=r["choice_changed"]
-        row[f"{ident} 확신도변화"]=r["confidence_change"]
+        row[f"{ident} 선택변경여부"]=s.responses[ident]["choice_changed"]
+    for ident in ("단순1","단순2","복잡1","복잡2"):
+        row[f"{ident} 확신도변화"]=s.responses[ident]["confidence_change"]
     # 문항별 원자료는 고정된 문항 순서로 뒤에 배치합니다.
     for ident in ("단순1","단순2","복잡1","복잡2"):
         r=s.responses[ident]
